@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IT Support — Koperasi Kredit Rukun (Prototipe Mobile UI/UX)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js untuk Grafik KPI -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #f1f5f9;
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    /* Sembunyikan scrollbar horizontal tapi tetap bisa di-scroll */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Custom subtle scrollbar untuk area konten ponsel */
+    .phone-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+    .phone-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .phone-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+
+    /* Animasi transisi layar */
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-screen {
+      animation: fadeSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes sheetSlideUp {
+      from {
+        transform: translateY(100%);
+      }
+      to {
+        transform: translateY(0);
+      }
+    }
+    .animate-sheet {
+      animation: sheetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start sm:justify-center p-0 sm:p-4 md:p-6 text-slate-800">
+
+  <!-- TOP CONTROL BAR (Luar Frame Ponsel - Untuk Simulasi Peran) -->
+  <div class="w-full max-w-md sm:max-w-lg mb-0 sm:mb-4 bg-white/90 backdrop-blur-md sm:rounded-2xl border-b sm:border border-slate-200/80 shadow-sm px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 z-30">
+    <div class="flex items-center gap-2">
+      <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span class="text-xs font-semibold text-slate-600 tracking-wide uppercase">Simulasi Peran</span>
+    </div>
+
+    <!-- Role Switcher Pill -->
+    <div class="grid grid-cols-2 bg-slate-100 p-1 rounded-xl w-full sm:w-auto border border-slate-200/60">
+      <button id="btn-role-public" onclick="switchRole('public')"
+        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-indigo-700 shadow-sm">
+        <i data-lucide="user" class="w-3.5 h-3.5"></i>
+        <span>Karyawan (Publik)</span>
+      </button>
+      <button id="btn-role-admin" onclick="switchRole('admin')"
+        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+        <span>Admin IT (Chandra)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MOBILE DEVICE FRAME -->
+  <div id="phone-frame" class="relative w-full sm:w-[400px] h-[100dvh] sm:h-[780px] bg-slate-50 sm:rounded-[2.75rem] sm:border-[8px] sm:border-slate-900 sm:shadow-[0_25px_60px_-15px_rgba(15,23,42,0.3)] flex flex-col overflow-hidden">
+
+    <!-- Status Bar Ponsel (Hanya tampil di layar desktop sm ke atas untuk estetika frame) -->
+    <div class="hidden sm:flex items-center justify-between px-6 pt-2.5 pb-1.5 bg-indigo-600 text-white text-[11px] font-medium select-none shrink-0">
+      <span>09:41</span>
+      <div class="w-20 h-4 bg-slate-900 rounded-full mx-auto"></div>
+      <div class="flex items-center gap-1.5">
+        <i data-lucide="wifi" class="w-3 h-3"></i>
+        <i data-lucide="battery-full" class="w-3.5 h-3.5"></i>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER (Inside Phone Viewport) -->
+    <div id="toast-container" class="absolute top-4 sm:top-12 left-4 right-4 z-50 pointer-events-none flex flex-col gap-2"></div>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 1: MODE KARYAWAN (FORM PUBLIK & LAYAR SUKSES)                    -->
+    <!-- ===================================================================== -->
+    <div id="view-public" class="flex-1 flex flex-col h-full overflow-hidden">
+      <!-- App Header Publik -->
+      <header class="bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 text-white px-5 pt-4 pb-6 rounded-b-3xl shadow-md shrink-0">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20">
+              <i data-lucide="headset" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+              <p class="text-[11px] font-medium text-indigo-100 leading-tight">Koperasi Kredit Rukun</p>
+              <h1 class="text-sm font-bold tracking-tight">Layanan IT Support</h1>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full bg-white/15 text-[11px] font-medium border border-white/15">
+            Tanpa Login
+          </span>
+        </div>
+        <h2 class="text-xl font-bold tracking-tight">Lapor Masalah IT</h2>
+        <p class="text-xs text-indigo-100 mt-0.5 leading-relaxed">
+          Isi formulir di bawah ini agar kendala teknis Anda segera tercatat dan ditangani tim IT.
+        </p>
+      </header>
+
+      <!-- Scrollable Content Publik -->
+      <main id="public-scroll-area" class="flex-1 overflow-y-auto phone-scroll px-5 py-5">
+        
+        <!-- SUB-VIEW 1A: FORM BUAT TIKET PUBLIK -->
+        <form id="public-ticket-form" onsubmit="handlePublicSubmit(event)" class="space-y-4 animate-screen pb-6" novalidate>
+          
+          <!-- Nama Pelapor -->
+          <div>
+            <label for="pub-nama" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Nama Pelapor <span class="text-rose-500">*</span>
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i data-lucide="user" class="w-4 h-4"></i>
+              </div>
+              <input type="text" id="pub-nama" placeholder="Contoh: Rina Marlina"
+                class="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all" />
+            </div>
+            <p id="err-pub-nama" class="hidden text-xs text-rose-600 mt-1 flex items-center gap-1">
+              <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> <span>Nama pelapor wajib diisi</span>
+            </p>
+          </div>
+
+          <!-- Unit Kerja (6 Unit sesuai PRD) -->
+          <div>
+            <label for="pub-unit" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Unit Kerja <span class="text-rose-500">*</span>
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i data-lucide="building-2" class="w-4 h-4"></i>
+              </div>
+              <select id="pub-unit"
+                class="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 appearance-none transition-all">
+                <option value="">Pilih unit kerja Anda...</option>
+                <option value="IT">IT</option>
+                <option value="Keuangan">Keuangan</option>
+                <option value="SDM">SDM</option>
+                <option value="Operasional">Operasional</option>
+                <option value="Bag. Umum">Bag. Umum</option>
+                <option value="Logistik">Logistik</option>
+              </select>
+              <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <p id="err-pub-unit" class="hidden text-xs text-rose-600 mt-1 flex items-center gap-1">
+              <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> <span>Silakan pilih unit kerja</span>
+            </p>
+          </div>
+
+          <!-- Kategori Masalah (4 Pilihan Kartu Modern) -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Kategori Masalah <span class="text-rose-500">*</span>
+            </label>
+            <input type="hidden" id="pub-kategori" value="" />
+            <div class="grid grid-cols-2 gap-2.5" id="pub-kategori-grid">
+              <button type="button" onclick="selectPublicCategory('komputer')" data-cat="komputer"
+                class="cat-card flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 text-left hover:border-indigo-300 transition-all">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 icon-box">
+                  <i data-lucide="monitor" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <span class="block text-xs font-semibold text-slate-800">Komputer</span>
+                  <span class="block text-[10px] text-slate-400">PC / Laptop / Layar</span>
+                </div>
+              </button>
+
+              <button type="button" onclick="selectPublicCategory('printer')" data-cat="printer"
+                class="cat-card flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 text-left hover:border-indigo-300 transition-all">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 icon-box">
+                  <i data-lucide="printer" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <span class="block text-xs font-semibold text-slate-800">Printer</span>
+                  <span class="block text-[10px] text-slate-400">Cetak / Tinta / Macet</span>
+                </div>
+              </button>
+
+              <button type="button" onclick="selectPublicCategory('jaringan')" data-cat="jaringan"
+                class="cat-card flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 text-left hover:border-indigo-300 transition-all">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 icon-box">
+                  <i data-lucide="wifi" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <span class="block text-xs font-semibold text-slate-800">Jaringan</span>
+                  <span class="block text-[10px] text-slate-400">WiFi / LAN / Internet</span>
+                </div>
+              </button>
+
+              <button type="button" onclick="selectPublicCategory('software')" data-cat="software"
+                class="cat-card flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 text-left hover:border-indigo-300 transition-all">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 icon-box">
+                  <i data-lucide="app-window" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <span class="block text-xs font-semibold text-slate-800">Software</span>
+                  <span class="block text-[10px] text-slate-400">Aplikasi / Sistem</span>
+                </div>
+              </button>
+            </div>
+            <p id="err-pub-kategori" class="hidden text-xs text-rose-600 mt-1 flex items-center gap-1">
+              <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> <span>Pilih salah satu kategori masalah</span>
+            </p>
+          </div>
+
+          <!-- Judul Masalah -->
+          <div>
+            <label for="pub-judul" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Judul Masalah <span class="text-rose-500">*</span>
+            </label>
+            <input type="text" id="pub-judul" placeholder="Contoh: Printer kasir tidak bisa menarik kertas"
+              class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all" />
+            <p id="err-pub-judul" class="hidden text-xs text-rose-600 mt-1 flex items-center gap-1">
+              <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> <span>Judul masalah wajib diisi</span>
+            </p>
+          </div>
+
+          <!-- Penjelasan Masalah -->
+          <div>
+            <label for="pub-penjelasan" class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Penjelasan Detail <span class="text-rose-500">*</span>
+            </label>
+            <textarea id="pub-penjelasan" rows="3" placeholder="Jelaskan kronologi atau pesan error yang muncul..."
+              class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all resize-none"></textarea>
+            <p id="err-pub-penjelasan" class="hidden text-xs text-rose-600 mt-1 flex items-center gap-1">
+              <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> <span>Penjelasan masalah wajib diisi</span>
+            </p>
+          </div>
+
+          <!-- Prioritas (Segmented Pill Selector - Default: Sedang) -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Tingkat Prioritas
+            </label>
+            <input type="hidden" id="pub-prioritas" value="sedang" />
+            <div class="grid grid-cols-3 gap-2 bg-slate-200/70 p-1 rounded-xl" id="pub-prioritas-group">
+              <button type="button" onclick="selectPublicPriority('rendah')" data-prio="rendah"
+                class="prio-btn py-2 px-2 rounded-lg text-xs font-semibold text-slate-600 transition-all">
+                Rendah
+              </button>
+              <button type="button" onclick="selectPublicPriority('sedang')" data-prio="sedang"
+                class="prio-btn py-2 px-2 rounded-lg text-xs font-semibold bg-amber-500 text-white shadow-sm transition-all">
+                Sedang
+              </button>
+              <button type="button" onclick="selectPublicPriority('tinggi')" data-prio="tinggi"
+                class="prio-btn py-2 px-2 rounded-lg text-xs font-semibold text-slate-600 transition-all">
+                Tinggi
+              </button>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="pt-2">
+            <button type="submit"
+              class="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold text-sm rounded-2xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="send" class="w-4 h-4"></i>
+              <span>Kirim Laporan</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- SUB-VIEW 1B: LAYAR SUKSES SETELAH KIRIM TIKET -->
+        <div id="public-success-screen" class="hidden animate-screen py-2">
+          <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 text-center relative overflow-hidden">
+            <!-- Dekorasi atas -->
+            <div class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-inner">
+              <i data-lucide="check-circle-2" class="w-9 h-9"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900">Laporan Diterima!</h3>
+            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+              Tiket Anda telah masuk ke antrean IT Support. Simpan nomor tiket berikut sebagai bukti laporan:
+            </p>
+
+            <!-- Kartu Nomor Tiket Digital -->
+            <div class="mt-5 p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300 relative">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Nomor Tiket Anda</span>
+              <div class="flex items-center justify-center gap-2 mt-1">
+                <span id="success-ticket-number" class="text-xl font-extrabold tracking-tight text-indigo-700 font-mono">
+                  TKT-202611-0008
+                </span>
+                <button type="button" onclick="copyTicketNumber()" title="Salin Nomor Tiket"
+                  class="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 shadow-xs transition-all">
+                  <i data-lucide="copy" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Ringkasan Singkat -->
+            <div class="mt-5 text-left bg-slate-50/70 rounded-2xl p-3.5 border border-slate-100 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Pelapor</span>
+                <span id="success-summary-nama" class="font-semibold text-slate-700">-</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Unit / Kategori</span>
+                <span id="success-summary-meta" class="font-semibold text-slate-700">-</span>
+              </div>
+              <div class="pt-1.5 border-t border-slate-200/60">
+                <span class="text-slate-400 block mb-0.5">Judul Masalah</span>
+                <span id="success-summary-judul" class="font-medium text-slate-800 block">-</span>
+              </div>
+            </div>
+
+            <!-- Tombol Aksi -->
+            <div class="mt-6 space-y-2.5">
+              <button type="button" onclick="resetPublicForm()"
+                class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>Buat Laporan Lagi</span>
+              </button>
+              <button type="button" onclick="switchRole('admin')"
+                class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all">
+                <span>Lihat di Konsol Admin IT</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 2: MODE ADMIN IT (CHANDRA - KASI IT)                             -->
+    <!-- ===================================================================== -->
+    <div id="view-admin" class="hidden flex-1 flex flex-col h-full overflow-hidden">
+
+      <!-- SUB-VIEW 2A: LAYAR LOGIN ADMIN (Opsional / Simulasi Cepat) -->
+      <div id="admin-login-screen" class="hidden flex-1 flex flex-col justify-center px-6 bg-slate-50 animate-screen">
+        <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-4 shadow-md shadow-indigo-600/20">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+          <h2 class="text-xl font-bold text-slate-900">Login Admin IT</h2>
+          <p class="text-xs text-slate-500 mt-1 mb-5">Masuk menggunakan akun Supabase Auth Koperasi Kredit Rukun.</p>
+
+          <form onsubmit="handleAdminLogin(event)" class="space-y-3.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Email Admin</label>
+              <input type="email" id="admin-email" value="chandra.it@kopditrukun.id" required
+                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Kata Sandi</label>
+              <input type="password" id="admin-pass" value="••••••••••••" required
+                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500" />
+            </div>
+            <button type="submit"
+              class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-indigo-600/20 mt-2 transition-all">
+              Masuk ke Konsol IT
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- SUB-VIEW 2B: WORKSPACE ADMIN UTAMA (DAFTAR TIKET & LAPORAN KPI) -->
+      <div id="admin-workspace" class="flex-1 flex flex-col h-full overflow-hidden">
+        
+        <!-- Header Admin -->
+        <header class="bg-slate-900 text-white px-5 pt-4 pb-4 shrink-0">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 font-bold text-sm">
+                CH
+              </div>
+              <div>
+                <p class="text-[11px] text-slate-400 leading-tight">Koperasi Kredit Rukun</p>
+                <h1 class="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Halo, Chandra</span>
+                  <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-500/25 text-indigo-300">Kasi IT</span>
+                </h1>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <!-- Tombol Buat Tiket Manual (Laporan WA/Telepon) -->
+              <button onclick="openManualModal()" title="Catat Tiket dari WA/Telepon"
+                class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-all">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>Tiket</span>
+              </button>
+              <!-- Tombol Logout Simulasi -->
+              <button onclick="handleAdminLogout()" title="Keluar"
+                class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- TAB 1: DAFTAR TIKET (/admin) -->
+        <div id="admin-tab-tickets" class="flex-1 flex flex-col overflow-hidden">
+          <!-- Filter Bar Sticky -->
+          <div class="bg-white border-b border-slate-200/80 px-4 py-3 space-y-2.5 shrink-0">
+            <!-- Status Filter Chips -->
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar" id="filter-status-bar">
+              <button onclick="setFilterStatus('semua')" data-status="semua"
+                class="status-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-900 text-white shrink-0 transition-all">
+                Semua (<span id="count-all">0</span>)
+              </button>
+              <button onclick="setFilterStatus('baru')" data-status="baru"
+                class="status-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 shrink-0 transition-all">
+                Baru (<span id="count-baru">0</span>)
+              </button>
+              <button onclick="setFilterStatus('dikerjakan')" data-status="dikerjakan"
+                class="status-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200/80 shrink-0 transition-all">
+                Dikerjakan (<span id="count-dikerjakan">0</span>)
+              </button>
+              <button onclick="setFilterStatus('selesai')" data-status="selesai"
+                class="status-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 shrink-0 transition-all">
+                Selesai (<span id="count-selesai">0</span>)
+              </button>
+            </div>
+
+            <!-- Category Filter Dropdown / Horizontal Mini Chips -->
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-medium text-slate-400 shrink-0">Kategori:</span>
+              <div class="flex items-center gap-1 overflow-x-auto no-scrollbar" id="filter-cat-bar">
+                <button onclick="setFilterCategory('semua')" data-cat="semua"
+                  class="cat-chip px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-50 text-indigo-700 shrink-0">
+                  Semua
+                </button>
+                <button onclick="setFilterCategory('komputer')" data-cat="komputer"
+                  class="cat-chip px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-100 shrink-0">
+                  Komputer
+                </button>
+                <button onclick="setFilterCategory('printer')" data-cat="printer"
+                  class="cat-chip px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-100 shrink-0">
+                  Printer
+                </button>
+                <button onclick="setFilterCategory('jaringan')" data-cat="jaringan"
+                  class="cat-chip px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-100 shrink-0">
+                  Jaringan
+                </button>
+                <button onclick="setFilterCategory('software')" data-cat="software"
+                  class="cat-chip px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-100 shrink-0">
+                  Software
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ticket List (Mobile Cards) -->
+          <div id="admin-ticket-list" class="flex-1 overflow-y-auto phone-scroll p-4 space-y-3">
+            <!-- Kartu tiket dirender oleh JavaScript -->
+          </div>
+        </div>
+
+        <!-- TAB 2: LAPORAN KPI (/admin/laporan) -->
+        <div id="admin-tab-kpi" class="hidden flex-1 overflow-y-auto phone-scroll p-4 space-y-4 animate-screen">
+          
+          <!-- Header & Filter Bulan -->
+          <div class="flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">Rekap KPI Bulanan</h2>
+              <p class="text-[11px] text-slate-500">Terhitung otomatis dari data tiket</p>
+            </div>
+            <select id="kpi-month-select" onchange="renderKPI()"
+              class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500">
+              <option value="2026-11" selected>November 2026</option>
+              <option value="2026-10">Oktober 2026</option>
+            </select>
+          </div>
+
+          <!-- 4 Kartu Metrik Ringkasan (Grid 2x2) -->
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Metrik 1: Total Tiket -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-medium text-slate-500">Total Tiket</span>
+                <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <i data-lucide="ticket" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="text-2xl font-extrabold text-slate-900" id="kpi-total">0</div>
+              <p class="text-[10px] text-slate-400 mt-0.5">Laporan masuk bulan ini</p>
+            </div>
+
+            <!-- Metrik 2: Selesai -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-medium text-slate-500">Selesai</span>
+                <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-2xl font-extrabold text-emerald-600" id="kpi-done">0</span>
+                <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded" id="kpi-done-pct">0%</span>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-0.5">Tuntas tertangani</p>
+            </div>
+
+            <!-- Metrik 3: Belum Selesai -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-medium text-slate-500">Belum Selesai</span>
+                <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <i data-lucide="clock" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="text-2xl font-extrabold text-amber-600" id="kpi-pending">0</div>
+              <p class="text-[10px] text-slate-400 mt-0.5">Baru & dikerjakan</p>
+            </div>
+
+            <!-- Metrik 4: Rata-rata Waktu Selesai -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-medium text-slate-500">Rata-rata Selesai</span>
+                <div class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <i data-lucide="timer" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="text-lg font-extrabold text-slate-900 leading-tight mt-1" id="kpi-avg-time">1j 45m</div>
+              <p class="text-[10px] text-slate-400 mt-1">Dari lapor hingga beres</p>
+            </div>
+          </div>
+
+          <!-- Grafik 1: Tren Tiket 6 Bulan Terakhir (Bar Chart) -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-800">Tren Tiket 6 Bulan Terakhir</h3>
+                <p class="text-[10px] text-slate-400">Jun – Nov 2026</p>
+              </div>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">Bulanan</span>
+            </div>
+            <div class="h-44 w-full">
+              <canvas id="chart-monthly"></canvas>
+            </div>
+          </div>
+
+          <!-- Grafik 2: Distribusi Tiket per Kategori (Donut Chart) -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-800">Kategori Masalah Terbanyak</h3>
+                <p class="text-[10px] text-slate-400">Proporsi kendala unit kerja</p>
+              </div>
+              <span id="kpi-top-cat" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Printer</span>
+            </div>
+            <div class="flex items-center gap-4">
+              <div class="w-32 h-32 shrink-0">
+                <canvas id="chart-category"></canvas>
+              </div>
+              <div id="category-legend" class="flex-1 space-y-2 text-xs">
+                <!-- Legend diisi via JS -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- BOTTOM NAVIGATION BAR (Admin Mode) -->
+        <nav class="bg-white border-t border-slate-200/90 px-4 py-2 flex items-center justify-around shrink-0 z-20">
+          <button onclick="switchAdminTab('tickets')" id="nav-tab-tickets"
+            class="flex flex-col items-center justify-center py-1 px-4 rounded-xl text-indigo-600 font-semibold transition-all relative">
+            <div class="relative">
+              <i data-lucide="inbox" class="w-5 h-5"></i>
+              <span id="nav-badge-baru" class="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                2
+              </span>
+            </div>
+            <span class="text-[10px] mt-1">Daftar Tiket</span>
+          </button>
+
+          <button onclick="switchAdminTab('kpi')" id="nav-tab-kpi"
+            class="flex flex-col items-center justify-center py-1 px-4 rounded-xl text-slate-400 hover:text-slate-700 font-medium transition-all">
+            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+            <span class="text-[10px] mt-1">Laporan KPI</span>
+          </button>
+
+          <button onclick="switchRole('public')"
+            class="flex flex-col items-center justify-center py-1 px-4 rounded-xl text-slate-400 hover:text-slate-700 font-medium transition-all">
+            <i data-lucide="external-link" class="w-5 h-5"></i>
+            <span class="text-[10px] mt-1">Form Publik</span>
+          </button>
+        </nav>
+
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- BOTTOM SHEET / OVERLAY: DETAIL & KERJAKAN TIKET (`/admin/tiket/:id`)  -->
+    <!-- ===================================================================== -->
+    <div id="sheet-detail" class="hidden absolute inset-0 z-40 flex flex-col justify-end bg-slate-900/50 backdrop-blur-[2px]">
+      <div class="bg-white rounded-t-3xl max-h-[90%] flex flex-col shadow-2xl animate-sheet overflow-hidden">
+        <!-- Drag Handle & Header -->
+        <div class="px-5 pt-3 pb-3 border-b border-slate-100 shrink-0">
+          <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3"></div>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span id="detail-nomor" class="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+                TKT-202611-0001
+              </span>
+              <span id="detail-status-badge"></span>
+            </div>
+            <button onclick="closeDetailSheet()" class="p-1.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Body Detail Tiket -->
+        <div class="flex-1 overflow-y-auto phone-scroll p-5 space-y-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1.5">
+              <span id="detail-prio-badge"></span>
+              <span id="detail-kategori-badge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-medium capitalize">
+              </span>
+            </div>
+            <h3 id="detail-judul" class="text-base font-bold text-slate-900 leading-snug">
+              Judul Masalah
+            </h3>
+          </div>
+
+          <!-- Info Pelapor & Unit -->
+          <div class="grid grid-cols-2 gap-2.5 bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs">
+            <div>
+              <span class="text-slate-400 block text-[10px]">Pelapor</span>
+              <span id="detail-pelapor" class="font-semibold text-slate-800">-</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px]">Unit Kerja</span>
+              <span id="detail-unit" class="font-semibold text-slate-800">-</span>
+            </div>
+          </div>
+
+          <!-- Penjelasan Masalah -->
+          <div>
+            <span class="text-xs font-semibold text-slate-700 block mb-1">Penjelasan Masalah</span>
+            <p id="detail-penjelasan" class="text-xs text-slate-600 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100 leading-relaxed">
+              -
+            </p>
+          </div>
+
+          <!-- Timeline Status -->
+          <div class="border-t border-slate-100 pt-3">
+            <span class="text-xs font-semibold text-slate-700 block mb-2.5">Riwayat Status</span>
+            <div class="space-y-2.5 text-xs">
+              <div class="flex items-start gap-2.5">
+                <div class="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0"></div>
+                <div>
+                  <span class="font-medium text-slate-800 block">Tiket Dibuat</span>
+                  <span id="detail-created-at" class="text-[11px] text-slate-400">-</span>
+                </div>
+              </div>
+              <div id="detail-timeline-done" class="hidden flex items-start gap-2.5">
+                <div class="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0"></div>
+                <div>
+                  <span class="font-medium text-emerald-700 block">Tiket Selesai</span>
+                  <span id="detail-selesai-at" class="text-[11px] text-slate-400">-</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AREA AKSI BERDASARKAN STATUS -->
+          <!-- 1. Jika status = 'baru' -->
+          <div id="action-area-baru" class="hidden pt-2">
+            <button onclick="startWorkingOnTicket()"
+              class="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-2xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="wrench" class="w-4 h-4"></i>
+              <span>Mulai Kerjakan Tiket</span>
+            </button>
+          </div>
+
+          <!-- 2. Jika status = 'dikerjakan' -->
+          <div id="action-area-dikerjakan" class="hidden pt-2 space-y-3 border-t border-slate-100">
+            <div>
+              <label for="input-tindakan" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                Tindakan yang Dilakukan <span class="text-rose-500">*</span>
+              </label>
+              <textarea id="input-tindakan" rows="3" placeholder="Catat langkah perbaikan yang dilakukan..."
+                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 resize-none"></textarea>
+              <p id="err-tindakan" class="hidden text-xs text-rose-600 mt-1 flex items-center gap-1">
+                <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> <span>Tindakan wajib diisi sebelum menandai selesai</span>
+              </p>
+            </div>
+            <button onclick="completeTicket()"
+              class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              <span>Tandai Selesai</span>
+            </button>
+          </div>
+
+          <!-- 3. Jika status = 'selesai' (Read-only, tidak bisa mundur) -->
+          <div id="action-area-selesai" class="hidden bg-emerald-50/90 border border-emerald-200 rounded-2xl p-4 space-y-1.5">
+            <div class="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+              <span>Tindakan Penyelesaian</span>
+            </div>
+            <p id="detail-tindakan-text" class="text-xs text-emerald-900 leading-relaxed">
+              -
+            </p>
+            <p class="text-[10px] text-emerald-700/80 pt-1 italic">
+              * Tiket selesai tidak dapat diubah statusnya kembali.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- BOTTOM SHEET: BUAT TIKET MANUAL (ADMIN - LAPORAN VIA WA / TELEPON)    -->
+    <!-- ===================================================================== -->
+    <div id="sheet-manual" class="hidden absolute inset-0 z-40 flex flex-col justify-end bg-slate-900/50 backdrop-blur-[2px]">
+      <div class="bg-white rounded-t-3xl max-h-[92%] flex flex-col shadow-2xl animate-sheet overflow-hidden">
+        <div class="px-5 pt-3 pb-3 border-b border-slate-100 shrink-0">
+          <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3"></div>
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Catat Tiket Manual</h3>
+              <p class="text-[11px] text-slate-500">Untuk laporan masuk via WhatsApp / telepon</p>
+            </div>
+            <button onclick="closeManualModal()" class="p-1.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <form onsubmit="handleManualSubmit(event)" class="flex-1 overflow-y-auto phone-scroll p-5 space-y-3.5" novalidate>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Pelapor <span class="text-rose-500">*</span></label>
+            <input type="text" id="man-nama" placeholder="Nama karyawan yang melapor"
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Unit Kerja <span class="text-rose-500">*</span></label>
+              <select id="man-unit" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500">
+                <option value="">Pilih unit...</option>
+                <option value="IT">IT</option>
+                <option value="Keuangan">Keuangan</option>
+                <option value="SDM">SDM</option>
+                <option value="Operasional">Operasional</option>
+                <option value="Bag. Umum">Bag. Umum</option>
+                <option value="Logistik">Logistik</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Kategori <span class="text-rose-500">*</span></label>
+              <select id="man-kategori" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500">
+                <option value="">Pilih kategori...</option>
+                <option value="komputer">Komputer</option>
+                <option value="printer">Printer</option>
+                <option value="jaringan">Jaringan</option>
+                <option value="software">Software</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Judul Masalah <span class="text-rose-500">*</span></label>
+            <input type="text" id="man-judul" placeholder="Ringkasan masalah"
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Penjelasan <span class="text-rose-500">*</span></label>
+            <textarea id="man-penjelasan" rows="2" placeholder="Detail laporan dari WA/telepon..."
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Prioritas</label>
+            <select id="man-prioritas" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500">
+              <option value="rendah">Rendah</option>
+              <option value="sedang" selected>Sedang</option>
+              <option value="tinggi">Tinggi</option>
+            </select>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit"
+              class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all">
+              Simpan Tiket ke Antrean
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // =========================================================================
+    // 1. DATA AWAL REALISTIS (Koperasi Kredit Rukun - November 2026)
+    // =========================================================================
+    let ticketSequence = 8;
+    let tickets = [
+      {
+        id: 'tkt-007',
+        nomor_tiket: 'TKT-202611-0007',
+        created_at: '21 Nov 2026, 09:15',
+        month: '2026-11',
+        nama_pelapor: 'Siti Aminah',
+        unit_kerja: 'Keuangan',
+        kategori: 'printer',
+        judul: 'Printer kasir loket 2 kertasnya macet terus',
+        penjelasan: 'Setiap kali mencetak bukti setoran anggota, kertas tersangkut di roller bagian dalam dan muncul lampu indikator oranye berkedip.',
+        prioritas: 'tinggi',
+        status: 'baru',
+        tindakan: null,
+        selesai_at: null
+      },
+      {
+        id: 'tkt-006',
+        nomor_tiket: 'TKT-202611-0006',
+        created_at: '21 Nov 2026, 08:40',
+        month: '2026-11',
+        nama_pelapor: 'Budi Santoso',
+        unit_kerja: 'Operasional',
+        kategori: 'jaringan',
+        judul: 'Koneksi WiFi ruang pelayanan lantai 2 putus-nyambung',
+        penjelasan: 'Sejak pagi jam 8 sinyal WiFi Rukun-Ops sering hilang timbul, menghambat akses sistem simpan pinjam saat melayani anggota.',
+        prioritas: 'tinggi',
+        status: 'dikerjakan',
+        tindakan: null,
+        selesai_at: null
+      },
+      {
+        id: 'tkt-005',
+        nomor_tiket: 'TKT-202611-0005',
+        created_at: '20 Nov 2026, 14:20',
+        month: '2026-11',
+        nama_pelapor: 'Dewi Lestari',
+        unit_kerja: 'SDM',
+        kategori: 'software',
+        judul: 'Aplikasi absensi & payroll gagal ekspor laporan PDF',
+        penjelasan: 'Muncul pesan error "Timeout saat membuat file" ketika mencoba mengunduh rekap kehadiran karyawan bulan berjalan.',
+        prioritas: 'sedang',
+        status: 'baru',
+        tindakan: null,
+        selesai_at: null
+      },
+      {
+        id: 'tkt-004',
+        nomor_tiket: 'TKT-202611-0004',
+        created_at: '19 Nov 2026, 10:05',
+        month: '2026-11',
+        nama_pelapor: 'Hendra Wijaya',
+        unit_kerja: 'Logistik',
+        kategori: 'komputer',
+        judul: 'PC admin gudang bunyi beep panjang saat dinyalakan',
+        penjelasan: 'Komputer tidak mau masuk ke tampilan Windows, layar tetap hitam dan terdengar bunyi beep berulang dari CPU.',
+        prioritas: 'sedang',
+        status: 'selesai',
+        tindakan: 'Membersihkan slot RAM dan memasang ulang keping memori yang longgar, serta membersihkan debu kipas prosesor. PC kembali booting normal.',
+        selesai_at: '19 Nov 2026, 11:30'
+      },
+      {
+        id: 'tkt-003',
+        nomor_tiket: 'TKT-202611-0003',
+        created_at: '18 Nov 2026, 13:10',
+        month: '2026-11',
+        nama_pelapor: 'Ratna Sari',
+        unit_kerja: 'Bag. Umum',
+        kategori: 'printer',
+        judul: 'Hasil cetak surat keluar bergaris dan pudar',
+        penjelasan: 'Printer Epson L3110 di meja administrasi umum hasil cetaknya bergaris putih horizontal meskipun tinta masih penuh.',
+        prioritas: 'rendah',
+        status: 'selesai',
+        tindakan: 'Menjalankan proses Head Cleaning 2 kali dan Power Ink Flushing melalui pengaturan driver printer. Hasil cetak kembali tajam.',
+        selesai_at: '18 Nov 2026, 14:15'
+      },
+      {
+        id: 'tkt-002',
+        nomor_tiket: 'TKT-202611-0002',
+        created_at: '16 Nov 2026, 09:00',
+        month: '2026-11',
+        nama_pelapor: 'Agus Setiawan',
+        unit_kerja: 'Keuangan',
+        kategori: 'software',
+        judul: 'Update sertifikat keamanan browser untuk akses internet banking',
+        penjelasan: 'Browser Chrome memblokir akses portal perbankan koperasi karena versi browser sudah usang.',
+        prioritas: 'tinggi',
+        status: 'selesai',
+        tindakan: 'Memperbarui Google Chrome ke versi terbaru dan menyesuaikan pengaturan tanggal/jam sistem Windows.',
+        selesai_at: '16 Nov 2026, 09:40'
+      },
+      {
+        id: 'tkt-001',
+        nomor_tiket: 'TKT-202610-0019',
+        created_at: '28 Okt 2026, 15:00',
+        month: '2026-10',
+        nama_pelapor: 'Nadia Putri',
+        unit_kerja: 'Operasional',
+        kategori: 'komputer',
+        judul: 'Monitor meja CS berkedip-kedip',
+        penjelasan: 'Layar monitor sering berkedip saat kabel tersenggol sedikit.',
+        prioritas: 'rendah',
+        status: 'selesai',
+        tindakan: 'Mengganti kabel HDMI lama dengan kabel baru dan mengencangkan baut dudukan monitor.',
+        selesai_at: '28 Okt 2026, 16:10'
+      }
+    ];
+
+    // State UI
+    let currentRole = 'public'; // 'public' | 'admin'
+    let isAdminLoggedIn = true; // Default true agar langsung bisa eksplorasi, bisa diuji logout/login
+    let activeAdminTab = 'tickets'; // 'tickets' | 'kpi'
+    let filterStatus = 'semua';
+    let filterCategory = 'semua';
+    let selectedTicketId = null;
+
+    // Chart instances
+    let monthlyChartInstance = null;
+    let categoryChartInstance = null;
+
+    // =========================================================================
+    // 2. HELPER UI (BADGES, ICONS, TOAST)
+    // =========================================================================
+    function getStatusBadgeHTML(status) {
+      const map = {
+        baru: {
+          bg: 'bg-amber-100',
+          text: 'text-amber-800',
+          dot: 'bg-amber-500',
+          label: 'Baru'
+        },
+        dikerjakan: {
+          bg: 'bg-blue-100',
+          text: 'text-blue-800',
+          dot: 'bg-blue-600',
+          label: 'Dikerjakan'
+        },
+        selesai: {
+          bg: 'bg-emerald-100',
+          text: 'text-emerald-800',
+          dot: 'bg-emerald-600',
+          label: 'Selesai'
+        }
+      };
+      const item = map[status] || map.baru;
+      return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${item.bg} ${item.text}">
+        <span class="w-1.5 h-1.5 rounded-full ${item.dot}"></span>
+        ${item.label}
+      </span>`;
+    }
+
+    function getPriorityBadgeHTML(prio) {
+      const map = {
+        rendah: {
+          bg: 'bg-slate-100',
+          text: 'text-slate-600',
+          label: 'Prioritas Rendah'
+        },
+        sedang: {
+          bg: 'bg-amber-50 border border-amber-200',
+          text: 'text-amber-700',
+          label: 'Prioritas Sedang'
+        },
+        tinggi: {
+          bg: 'bg-rose-100',
+          text: 'text-rose-700',
+          label: 'Prioritas Tinggi'
+        }
+      };
+      const item = map[prio] || map.sedang;
+      return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${item.bg} ${item.text}">
+        ${item.label}
+      </span>`;
+    }
+
+    function getCategoryIconName(cat) {
+      const icons = {
+        komputer: 'monitor',
+        printer: 'printer',
+        jaringan: 'wifi',
+        software: 'app-window'
+      };
+      return icons[cat] || 'help-circle';
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const isSuccess = type === 'success';
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl shadow-lg border text-xs font-semibold animate-screen ${
+        isSuccess
+          ? 'bg-emerald-600 text-white border-emerald-500'
+          : 'bg-rose-600 text-white border-rose-500'
+      }`;
+      toast.innerHTML = `
+        <i data-lucide="${isSuccess ? 'check-circle-2' : 'alert-circle'}" class="w-4 h-4 shrink-0"></i>
+        <span class="leading-snug">${message}</span>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-6px)';
+        toast.style.transition = 'all 0.2s ease';
+        setTimeout(() => toast.remove(), 220);
+      }, 2800);
+    }
+
+    function formatNowIndonesian() {
+      const now = new Date();
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = months[now.getMonth()];
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      return `${day} ${month} ${year}, ${hours}:${mins}`;
+    }
+
+    // =========================================================================
+    // 3. ROLE SWITCHING (PUBLIK <-> ADMIN)
+    // =========================================================================
+    function switchRole(role) {
+      currentRole = role;
+      const btnPublic = document.getElementById('btn-role-public');
+      const btnAdmin = document.getElementById('btn-role-admin');
+      const viewPublic = document.getElementById('view-public');
+      const viewAdmin = document.getElementById('view-admin');
+
+      if (role === 'public') {
+        btnPublic.className = 'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-indigo-700 shadow-sm';
+        btnAdmin.className = 'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+        viewPublic.classList.remove('hidden');
+        viewAdmin.classList.add('hidden');
+      } else {
+        btnAdmin.className = 'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-indigo-700 shadow-sm';
+        btnPublic.className = 'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+        viewPublic.classList.add('hidden');
+        viewAdmin.classList.remove('hidden');
+        updateAdminAuthScreen();
+        renderAdminTickets();
+        if (activeAdminTab === 'kpi') renderKPI();
+      }
+      lucide.createIcons();
+    }
+
+    function updateAdminAuthScreen() {
+      const loginScreen = document.getElementById('admin-login-screen');
+      const workspace = document.getElementById('admin-workspace');
+      if (isAdminLoggedIn) {
+        loginScreen.classList.add('hidden');
+        workspace.classList.remove('hidden');
+      } else {
+        loginScreen.classList.remove('hidden');
+        workspace.classList.add('hidden');
+      }
+    }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      isAdminLoggedIn = true;
+      updateAdminAuthScreen();
+      renderAdminTickets();
+      showToast('Berhasil masuk sebagai Chandra (Admin IT)');
+    }
+
+    function handleAdminLogout() {
+      isAdminLoggedIn = false;
+      updateAdminAuthScreen();
+      showToast('Anda telah keluar dari sesi Admin', 'success');
+    }
+
+    // =========================================================================
+    // 4. FORM PUBLIK LOGIC
+    // =========================================================================
+    function selectPublicCategory(cat) {
+      document.getElementById('pub-kategori').value = cat;
+      document.getElementById('err-pub-kategori').classList.add('hidden');
+
+      const cards = document.querySelectorAll('#pub-kategori-grid .cat-card');
+      cards.forEach(card => {
+        const iconBox = card.querySelector('.icon-box');
+        if (card.dataset.cat === cat) {
+          card.classList.remove('bg-white', 'border-slate-200');
+          card.classList.add('bg-indigo-50/70', 'border-indigo-500', 'ring-2', 'ring-indigo-500/20');
+          iconBox.classList.remove('bg-slate-100', 'text-slate-600');
+          iconBox.classList.add('bg-indigo-600', 'text-white');
+        } else {
+          card.classList.add('bg-white', 'border-slate-200');
+          card.classList.remove('bg-indigo-50/70', 'border-indigo-500', 'ring-2', 'ring-indigo-500/20');
+          iconBox.classList.add('bg-slate-100', 'text-slate-600');
+          iconBox.classList.remove('bg-indigo-600', 'text-white');
+        }
+      });
+    }
+
+    function selectPublicPriority(prio) {
+      document.getElementById('pub-prioritas').value = prio;
+      const buttons = document.querySelectorAll('#pub-prioritas-group .prio-btn');
+      buttons.forEach(btn => {
+        btn.className = 'prio-btn py-2 px-2 rounded-lg text-xs font-semibold text-slate-600 transition-all';
+        if (btn.dataset.prio === prio) {
+          if (prio === 'rendah') {
+            btn.className = 'prio-btn py-2 px-2 rounded-lg text-xs font-semibold bg-slate-700 text-white shadow-sm transition-all';
+          } else if (prio === 'sedang') {
+            btn.className = 'prio-btn py-2 px-2 rounded-lg text-xs font-semibold bg-amber-500 text-white shadow-sm transition-all';
+          } else if (prio === 'tinggi') {
+            btn.className = 'prio-btn py-2 px-2 rounded-lg text-xs font-semibold bg-rose-600 text-white shadow-sm transition-all';
+          }
+        }
+      });
+    }
+
+    function handlePublicSubmit(e) {
+      e.preventDefault();
+
+      const nama = document.getElementById('pub-nama').value.trim();
+      const unit = document.getElementById('pub-unit').value;
+      const kategori = document.getElementById('pub-kategori').value;
+      const judul = document.getElementById('pub-judul').value.trim();
+      const penjelasan = document.getElementById('pub-penjelasan').value.trim();
+      const prioritas = document.getElementById('pub-prioritas').value;
+
+      // Reset error messages
+      ['nama', 'unit', 'kategori', 'judul', 'penjelasan'].forEach(f => {
+        document.getElementById(`err-pub-${f}`).classList.add('hidden');
+      });
+
+      let isValid = true;
+      if (!nama) { document.getElementById('err-pub-nama').classList.remove('hidden'); isValid = false; }
+      if (!unit) { document.getElementById('err-pub-unit').classList.remove('hidden'); isValid = false; }
+      if (!kategori) { document.getElementById('err-pub-kategori').classList.remove('hidden'); isValid = false; }
+      if (!judul) { document.getElementById('err-pub-judul').classList.remove('hidden'); isValid = false; }
+      if (!penjelasan) { document.getElementById('err-pub-penjelasan').classList.remove('hidden'); isValid = false; }
+
+      if (!isValid) {
+        showToast('Mohon lengkapi semua kolom yang wajib diisi', 'error');
+        return;
+      }
+
+      // Generate Nomor Tiket Otomatis (Simulasi trigger PostgreSQL TKT-YYYYMM-####)
+      const nomorTiket = `TKT-202611-${String(ticketSequence).padStart(4, '0')}`;
+      ticketSequence++;
+
+      const newTicket = {
+        id: 'tkt-' + Date.now(),
+        nomor_tiket: nomorTiket,
+        created_at: formatNowIndonesian(),
+        month: '2026-11',
+        nama_pelapor: nama,
+        unit_kerja: unit,
+        kategori: kategori,
+        judul: judul,
+        penjelasan: penjelasan,
+        prioritas: prioritas,
+        status: 'baru',
+        tindakan: null,
+        selesai_at: null
+      };
+
+      // Tambahkan ke paling atas daftar tiket
+      tickets.unshift(newTicket);
+
+      // Tampilkan layar sukses
+      document.getElementById('success-ticket-number').textContent = nomorTiket;
+      document.getElementById('success-summary-nama').textContent = nama;
+      document.getElementById('success-summary-meta').textContent = `${unit} • ${kategori.charAt(0).toUpperCase() + kategori.slice(1)}`;
+      document.getElementById('success-summary-judul').textContent = judul;
+
+      document.getElementById('public-ticket-form').classList.add('hidden');
+      document.getElementById('public-success-screen').classList.remove('hidden');
+      document.getElementById('public-scroll-area').scrollTop = 0;
+
+      showToast(`Tiket ${nomorTiket} berhasil dikirim!`, 'success');
+      lucide.createIcons();
+    }
+
+    function copyTicketNumber() {
+      const text = document.getElementById('success-ticket-number').textContent.trim();
+      const tempInput = document.createElement('input');
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      showToast(`Nomor tiket ${text} disalin ke papan klip`);
+    }
+
+    function resetPublicForm() {
+      document.getElementById('public-ticket-form').reset();
+      document.getElementById('pub-kategori').value = '';
+      selectPublicCategory('');
+      selectPublicPriority('sedang');
+
+      document.getElementById('public-success-screen').classList.add('hidden');
+      document.getElementById('public-ticket-form').classList.remove('hidden');
+      document.getElementById('public-scroll-area').scrollTop = 0;
+    }
+
+    // =========================================================================
+    // 5. ADMIN WORKSPACE: DAFTAR TIKET & FILTER
+    // =========================================================================
+    function switchAdminTab(tab) {
+      activeAdminTab = tab;
+      const tabTickets = document.getElementById('admin-tab-tickets');
+      const tabKpi = document.getElementById('admin-tab-kpi');
+      const navTickets = document.getElementById('nav-tab-tickets');
+      const navKpi = document.getElementById('nav-tab-kpi');
+
+      if (tab === 'tickets') {
+        tabTickets.classList.remove('hidden');
+        tabKpi.classList.add('hidden');
+        navTickets.className = 'flex flex-col items-center justify-center py-1 px-4 rounded-xl text-indigo-600 font-semibold transition-all relative';
+        navKpi.className = 'flex flex-col items-center justify-center py-1 px-4 rounded-xl text-slate-400 hover:text-slate-700 font-medium transition-all';
+        renderAdminTickets();
+      } else {
+        tabTickets.classList.add('hidden');
+        tabKpi.classList.remove('hidden');
+        navKpi.className = 'flex flex-col items-center justify-center py-1 px-4 rounded-xl text-indigo-600 font-semibold transition-all';
+        navTickets.className = 'flex flex-col items-center justify-center py-1 px-4 rounded-xl text-slate-400 hover:text-slate-700 font-medium transition-all relative';
+        renderKPI();
+      }
+      lucide.createIcons();
+    }
+
+    function setFilterStatus(status) {
+      filterStatus = status;
+      document.querySelectorAll('#filter-status-bar .status-chip').forEach(btn => {
+        const s = btn.dataset.status;
+        if (s === status) {
+          btn.classList.add('ring-2', 'ring-offset-1', 'ring-indigo-500');
+        } else {
+          btn.classList.remove('ring-2', 'ring-offset-1', 'ring-indigo-500');
+        }
+      });
+      renderAdminTickets();
+    }
+
+    function setFilterCategory(cat) {
+      filterCategory = cat;
+      document.querySelectorAll('#filter-cat-bar .cat-chip').forEach(btn => {
+        if (btn.dataset.cat === cat) {
+          btn.className = 'cat-chip px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-50 text-indigo-700 shrink-0';
+        } else {
+          btn.className = 'cat-chip px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-100 shrink-0';
+        }
+      });
+      renderAdminTickets();
+    }
+
+    function renderAdminTickets() {
+      // Update counters
+      const totalAll = tickets.length;
+      const totalBaru = tickets.filter(t => t.status === 'baru').length;
+      const totalDikerjakan = tickets.filter(t => t.status === 'dikerjakan').length;
+      const totalSelesai = tickets.filter(t => t.status === 'selesai').length;
+
+      document.getElementById('count-all').textContent = totalAll;
+      document.getElementById('count-baru').textContent = totalBaru;
+      document.getElementById('count-dikerjakan').textContent = totalDikerjakan;
+      document.getElementById('count-selesai').textContent = totalSelesai;
+
+      const navBadge = document.getElementById('nav-badge-baru');
+      if (totalBaru > 0) {
+        navBadge.textContent = totalBaru;
+        navBadge.classList.remove('hidden');
+      } else {
+        navBadge.classList.add('hidden');
+      }
+
+      // Filter list
+      const filtered = tickets.filter(t => {
+        const matchStatus = filterStatus === 'semua' || t.status === filterStatus;
+        const matchCat = filterCategory === 'semua' || t.kategori === filterCategory;
+        return matchStatus && matchCat;
+      });
+
+      const listContainer = document.getElementById('admin-ticket-list');
+
+      if (filtered.length === 0) {
+        listContainer.innerHTML = `
+          <div class="text-center py-12 px-4">
+            <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <i data-lucide="inbox" class="w-6 h-6"></i>
+            </div>
+            <p class="text-sm font-semibold text-slate-700">Tidak ada tiket ditemukan</p>
+            <p class="text-xs text-slate-400 mt-1">Coba ubah filter status atau kategori di atas.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      listContainer.innerHTML = filtered.map(t => `
+        <div onclick="openDetailSheet('${t.id}')"
+          class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs hover:border-indigo-300 active:scale-[0.99] transition-all cursor-pointer">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <span class="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50/80 px-2 py-0.5 rounded-md">
+              ${t.nomor_tiket}
+            </span>
+            ${getStatusBadgeHTML(t.status)}
+          </div>
+
+          <h3 class="text-sm font-bold text-slate-900 leading-snug line-clamp-2 mb-2.5">
+            ${t.judul}
+          </h3>
+
+          <div class="flex items-center justify-between text-[11px] text-slate-500 pt-2.5 border-t border-slate-100">
+            <div class="flex items-center gap-1.5 truncate">
+              <span class="font-semibold text-slate-700">${t.nama_pelapor}</span>
+              <span>•</span>
+              <span class="text-slate-500">${t.unit_kerja}</span>
+            </div>
+            <div class="flex items-center gap-1 shrink-0 capitalize text-slate-600 font-medium">
+              <i data-lucide="${getCategoryIconName(t.kategori)}" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>${t.kategori}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between mt-2">
+            ${getPriorityBadgeHTML(t.prioritas)}
+            <span class="text-[10px] text-slate-400">${t.created_at}</span>
+          </div>
+        </div>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    // =========================================================================
+    // 6. DETAIL & KERJAKAN TIKET (BOTTOM SHEET)
+    // =========================================================================
+    function openDetailSheet(ticketId) {
+      const ticket = tickets.find(t => t.id === ticketId);
+      if (!ticket) return;
+      selectedTicketId = ticketId;
+
+      document.getElementById('detail-nomor').textContent = ticket.nomor_tiket;
+      document.getElementById('detail-status-badge').innerHTML = getStatusBadgeHTML(ticket.status);
+      document.getElementById('detail-prio-badge').innerHTML = getPriorityBadgeHTML(ticket.prioritas);
+      document.getElementById('detail-kategori-badge').innerHTML = `
+        <i data-lucide="${getCategoryIconName(ticket.kategori)}" class="w-3 h-3"></i>
+        <span>${ticket.kategori}</span>
+      `;
+      document.getElementById('detail-judul').textContent = ticket.judul;
+      document.getElementById('detail-pelapor').textContent = ticket.nama_pelapor;
+      document.getElementById('detail-unit').textContent = ticket.unit_kerja;
+      document.getElementById('detail-penjelasan').textContent = ticket.penjelasan;
+      document.getElementById('detail-created-at').textContent = ticket.created_at;
+
+      // Timeline Selesai
+      const timelineDone = document.getElementById('detail-timeline-done');
+      if (ticket.status === 'selesai' && ticket.selesai_at) {
+        timelineDone.classList.remove('hidden');
+        document.getElementById('detail-selesai-at').textContent = ticket.selesai_at;
+      } else {
+        timelineDone.classList.add('hidden');
+      }
+
+      // Reset action areas
+      document.getElementById('action-area-baru').classList.add('hidden');
+      document.getElementById('action-area-dikerjakan').classList.add('hidden');
+      document.getElementById('action-area-selesai').classList.add('hidden');
+      document.getElementById('err-tindakan').classList.add('hidden');
+      document.getElementById('input-tindakan').value = '';
+
+      if (ticket.status === 'baru') {
+        document.getElementById('action-area-baru').classList.remove('hidden');
+      } else if (ticket.status === 'dikerjakan') {
+        document.getElementById('action-area-dikerjakan').classList.remove('hidden');
+      } else if (ticket.status === 'selesai') {
+        document.getElementById('action-area-selesai').classList.remove('hidden');
+        document.getElementById('detail-tindakan-text').textContent = ticket.tindakan;
+      }
+
+      document.getElementById('sheet-detail').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeDetailSheet() {
+      document.getElementById('sheet-detail').classList.add('hidden');
+      selectedTicketId = null;
+    }
+
+    function startWorkingOnTicket() {
+      const ticket = tickets.find(t => t.id === selectedTicketId);
+      if (!ticket) return;
+
+      ticket.status = 'dikerjakan';
+      showToast(`Tiket ${ticket.nomor_tiket} mulai dikerjakan`, 'success');
+      openDetailSheet(ticket.id);
+      renderAdminTickets();
+    }
+
+    function completeTicket() {
+      const ticket = tickets.find(t => t.id === selectedTicketId);
+      if (!ticket) return;
+
+      const tindakanInput = document.getElementById('input-tindakan').value.trim();
+      if (!tindakanInput) {
+        document.getElementById('err-tindakan').classList.remove('hidden');
+        showToast('Isi tindakan penyelesaian terlebih dahulu', 'error');
+        return;
+      }
+
+      ticket.status = 'selesai';
+      ticket.tindakan = tindakanInput;
+      ticket.selesai_at = formatNowIndonesian();
+
+      showToast(`Tiket ${ticket.nomor_tiket} ditandai selesai!`, 'success');
+      openDetailSheet(ticket.id);
+      renderAdminTickets();
+      if (activeAdminTab === 'kpi') renderKPI();
+    }
+
+    // =========================================================================
+    // 7. BUAT TIKET MANUAL (ADMIN - LAPORAN WA/TELEPON)
+    // =========================================================================
+    function openManualModal() {
+      document.getElementById('sheet-manual').classList.remove('hidden');
+    }
+
+    function closeManualModal() {
+      document.getElementById('sheet-manual').classList.add('hidden');
+    }
+
+    function handleManualSubmit(e) {
+      e.preventDefault();
+      const nama = document.getElementById('man-nama').value.trim();
+      const unit = document.getElementById('man-unit').value;
+      const kategori = document.getElementById('man-kategori').value;
+      const judul = document.getElementById('man-judul').value.trim();
+      const penjelasan = document.getElementById('man-penjelasan').value.trim();
+      const prioritas = document.getElementById('man-prioritas').value;
+
+      if (!nama || !unit || !kategori || !judul || !penjelasan) {
+        showToast('Semua kolom wajib diisi untuk mencatat tiket', 'error');
+        return;
+      }
+
+      const nomorTiket = `TKT-202611-${String(ticketSequence).padStart(4, '0')}`;
+      ticketSequence++;
+
+      tickets.unshift({
+        id: 'tkt-' + Date.now(),
+        nomor_tiket: nomorTiket,
+        created_at: formatNowIndonesian(),
+        month: '2026-11',
+        nama_pelapor: nama,
+        unit_kerja: unit,
+        kategori: kategori,
+        judul: judul,
+        penjelasan: penjelasan,
+        prioritas: prioritas,
+        status: 'baru',
+        tindakan: null,
+        selesai_at: null
+      });
+
+      e.target.reset();
+      closeManualModal();
+      switchAdminTab('tickets');
+      showToast(`Tiket manual ${nomorTiket} berhasil ditambahkan`, 'success');
+    }
+
+    // =========================================================================
+    // 8. LAPORAN KPI & CHARTS (Chart.js menyerupai Shadcn Charts)
+    // =========================================================================
+    function renderKPI() {
+      const selectedMonth = document.getElementById('kpi-month-select').value;
+      const monthTickets = tickets.filter(t => t.month === selectedMonth);
+
+      const total = monthTickets.length;
+      const done = monthTickets.filter(t => t.status === 'selesai').length;
+      const pending = total - done;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      document.getElementById('kpi-total').textContent = total;
+      document.getElementById('kpi-done').textContent = done;
+      document.getElementById('kpi-done-pct').textContent = `${pct}%`;
+      document.getElementById('kpi-pending').textContent = pending;
+      document.getElementById('kpi-avg-time').textContent = selectedMonth === '2026-11' ? '1j 15m' : '1j 10m';
+
+      // Hitung distribusi kategori (dari seluruh tiket atau bulan berjalan)
+      const catCounts = {
+        komputer: monthTickets.filter(t => t.kategori === 'komputer').length,
+        printer: monthTickets.filter(t => t.kategori === 'printer').length,
+        jaringan: monthTickets.filter(t => t.kategori === 'jaringan').length,
+        software: monthTickets.filter(t => t.kategori === 'software').length
+      };
+
+      // Cari kategori terbanyak
+      const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+      const topCatName = sortedCats[0][1] > 0
+        ? sortedCats[0][0].charAt(0).toUpperCase() + sortedCats[0][0].slice(1)
+        : '-';
+      document.getElementById('kpi-top-cat').textContent = `Terbanyak: ${topCatName}`;
+
+      // Render Bar Chart (Tren 6 Bulan Terakhir)
+      const ctxMonthly = document.getElementById('chart-monthly').getContext('2d');
+      if (monthlyChartInstance) monthlyChartInstance.destroy();
+
+      const novCount = tickets.filter(t => t.month === '2026-11').length;
+      monthlyChartInstance = new Chart(ctxMonthly, {
+        type: 'bar',
+        data: {
+          labels: ['Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov'],
+          datasets: [{
+            label: 'Jumlah Tiket',
+            data: [14, 18, 12, 21, 19, novCount],
+            backgroundColor: ['#c7d2fe', '#c7d2fe', '#c7d2fe', '#c7d2fe', '#c7d2fe', '#4f46e5'],
+            borderRadius: 6,
+            barThickness: 22
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              padding: 10,
+              cornerRadius: 8,
+              titleFont: { size: 11, family: 'Inter' },
+              bodyFont: { size: 12, weight: 'bold', family: 'Inter' }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 5, font: { size: 10, family: 'Inter' }, color: '#94a3b8' },
+              grid: { color: '#f1f5f9' },
+              border: { display: false }
+            },
+            x: {
+              ticks: { font: { size: 10, weight: '600', family: 'Inter' }, color: '#64748b' },
+              grid: { display: false },
+              border: { display: false }
+            }
+          }
+        }
+      });
+
+      // Render Donut Chart (Distribusi Kategori)
+      const ctxCat = document.getElementById('chart-category').getContext('2d');
+      if (categoryChartInstance) categoryChartInstance.destroy();
+
+      const catLabels = ['Komputer', 'Printer', 'Jaringan', 'Software'];
+      const catValues = [catCounts.komputer, catCounts.printer, catCounts.jaringan, catCounts.software];
+      const catColors = ['#4f46e5', '#f59e0b', '#0ea5e9', '#10b981'];
+
+      categoryChartInstance = new Chart(ctxCat, {
+        type: 'doughnut',
+        data: {
+          labels: catLabels,
+          datasets: [{
+            data: catValues,
+            backgroundColor: catColors,
+            borderWidth: 2,
+            borderColor: '#ffffff',
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '66%',
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      // Custom Legend HTML
+      const legendContainer = document.getElementById('category-legend');
+      legendContainer.innerHTML = catLabels.map((label, idx) => `
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${catColors[idx]}"></span>
+            <span class="text-slate-600 font-medium">${label}</span>
+          </div>
+          <span class="font-bold text-slate-800">${catValues[idx]}</span>
+        </div>
+      `).join('');
+    }
+
+    // =========================================================================
+    // 9. INITIALIZATION ON LOAD
+    // =========================================================================
+    window.onload = function () {
+      lucide.createIcons();
+      renderAdminTickets();
+      setFilterStatus('semua');
+    };
+  </script>
+</body>
+</html>

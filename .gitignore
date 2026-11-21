@@ -1,0 +1,23 @@
+# Dependency & hasil build
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Env & secret (jangan pernah di-commit)
+.env
+.env.*
+
+# Hasil tes & tooling
+test-results/
+playwright-report/
+blob-report/
+supabase/.temp/
+supabase/.branches/
+
+# Editor & OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
