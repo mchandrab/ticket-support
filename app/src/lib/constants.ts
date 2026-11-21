@@ -33,3 +33,10 @@ export const LABEL_PRIORITAS: Record<Prioritas, string> = {
   sedang: 'Sedang',
   tinggi: 'Tinggi',
 }
+
+/** Label urgensi ala Frost (hanya untuk form publik). */
+export const LABEL_PRIORITAS_FROST: Record<Prioritas, string> = {
+  rendah: 'Normal',
+  sedang: 'Mendesak',
+  tinggi: 'Kritis',
+}

@@ -1,8 +1,14 @@
-import { AlertCircle, Building2, ChevronDown, Send, User } from 'lucide-react'
+import { AlertCircle, ArrowRight, Loader2 } from 'lucide-react'
 import { useState } from 'react'
-import { IKON_KATEGORI } from '@/components/Badges'
-import { KATEGORI, LABEL_KATEGORI, LABEL_PRIORITAS, PRIORITAS, UNIT_KERJA } from '@/lib/constants'
-import type { InputTiket } from '@/lib/types'
+import { toast } from 'sonner'
+import {
+  KATEGORI,
+  LABEL_KATEGORI,
+  LABEL_PRIORITAS_FROST,
+  PRIORITAS,
+  UNIT_KERJA,
+} from '@/lib/constants'
+import type { InputTiket, Kategori } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 type NilaiForm = {
@@ -14,9 +20,56 @@ type NilaiForm = {
   prioritas: string
 }
 
-type Kesalahan = Partial<Record<keyof NilaiForm, string>>
+type SalahForm = Partial<Record<keyof NilaiForm, string>>
 
-const AWAL: NilaiForm = {
+type Props = {
+  onKirim: (nilai: InputTiket) => Promise<boolean>
+  labelTombol?: string
+  onBatal?: () => void
+  /** Tampilkan chip kendala cepat (hanya untuk form publik). */
+  tampilkanPreset?: boolean
+}
+
+const DOT_PRIORITAS: Record<string, string> = {
+  rendah: 'bg-teal-400',
+  sedang: 'bg-amber-500',
+  tinggi: 'bg-rose-500',
+}
+
+/** Preset kendala umum: sekali ketuk mengisi kategori, judul, dan penjelasan. */
+const PRESET_KENDALA: {
+  label: string
+  kategori: Kategori
+  judul: string
+  penjelasan: string
+}[] = [
+  {
+    label: 'Wi-Fi / LAN Putus',
+    kategori: 'jaringan',
+    judul: 'Koneksi Wi-Fi / LAN terputus',
+    penjelasan: 'Komputer tidak terhubung ke jaringan lokal kantor.',
+  },
+  {
+    label: 'Sistem Koperasi Lambat',
+    kategori: 'software',
+    judul: 'Aplikasi koperasi merespons lambat',
+    penjelasan: 'Proses penyimpanan transaksi mengalami loading lama.',
+  },
+  {
+    label: 'Printer Kasir Error',
+    kategori: 'printer',
+    judul: 'Printer kasir / passbook macet',
+    penjelasan: 'Printer tidak dapat mencetak bukti transaksi atau buku tabungan.',
+  },
+  {
+    label: 'PC / Laptop Bermasalah',
+    kategori: 'komputer',
+    judul: 'Komputer / laptop tidak bisa dipakai',
+    penjelasan: 'Perangkat tidak menyala, lambat, atau muncul pesan error.',
+  },
+]
+
+const NILAI_AWAL: NilaiForm = {
   nama_pelapor: '',
   unit_kerja: '',
   kategori: '',
@@ -25,51 +78,24 @@ const AWAL: NilaiForm = {
   prioritas: 'sedang',
 }
 
-const KETERANGAN_KATEGORI: Record<string, string> = {
-  komputer: 'PC / Laptop / Layar',
-  printer: 'Cetak / Tinta / Macet',
-  jaringan: 'WiFi / LAN / Internet',
-  software: 'Aplikasi / Sistem',
-}
-
-const GAYA_PIL_PRIORITAS: Record<string, string> = {
-  rendah: 'bg-slate-700 text-white shadow-sm',
-  sedang: 'bg-amber-500 text-white shadow-sm',
-  tinggi: 'bg-rose-600 text-white shadow-sm',
-}
-
-function validasi(nilai: NilaiForm): Kesalahan {
-  const salah: Kesalahan = {}
-  if (nilai.nama_pelapor.trim().length < 3) salah.nama_pelapor = 'Nama pelapor wajib diisi'
-  if (!nilai.unit_kerja) salah.unit_kerja = 'Silakan pilih unit kerja'
-  if (!nilai.kategori) salah.kategori = 'Pilih salah satu kategori masalah'
-  if (nilai.judul.trim().length < 5) salah.judul = 'Judul masalah wajib diisi'
-  if (nilai.penjelasan.trim().length < 10) salah.penjelasan = 'Penjelasan masalah wajib diisi'
-  return salah
-}
-
 function PesanSalah({ pesan }: { pesan?: string }) {
   if (!pesan) return null
   return (
-    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-rose-600">
+    <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-rose-600">
       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
       <span>{pesan}</span>
     </p>
   )
 }
 
-const GAYA_INPUT =
-  'w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-800 transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/30 focus:outline-none'
-
-type Props = {
-  onKirim: (nilai: InputTiket) => Promise<boolean>
-  labelTombol?: string
-  onBatal?: () => void
-}
-
-export function TicketForm({ onKirim, labelTombol = 'Kirim Laporan', onBatal }: Props) {
-  const [nilai, setNilai] = useState<NilaiForm>(AWAL)
-  const [salah, setSalah] = useState<Kesalahan>({})
+export function TicketForm({
+  onKirim,
+  labelTombol = 'Kirim Laporan',
+  onBatal,
+  tampilkanPreset = false,
+}: Props) {
+  const [nilai, setNilai] = useState<NilaiForm>(NILAI_AWAL)
+  const [salah, setSalah] = useState<SalahForm>({})
   const [mengirim, setMengirim] = useState(false)
 
   function ubah<K extends keyof NilaiForm>(kunci: K, isi: NilaiForm[K]) {
@@ -77,208 +103,274 @@ export function TicketForm({ onKirim, labelTombol = 'Kirim Laporan', onBatal }: 
     setSalah((lama) => ({ ...lama, [kunci]: undefined }))
   }
 
+  function terapkanPreset(preset: (typeof PRESET_KENDALA)[number]) {
+    setNilai((lama) => ({
+      ...lama,
+      kategori: preset.kategori,
+      judul: preset.judul,
+      penjelasan: preset.penjelasan,
+    }))
+    setSalah((lama) => ({
+      ...lama,
+      kategori: undefined,
+      judul: undefined,
+      penjelasan: undefined,
+    }))
+    toast.success(`Preset "${preset.label}" diterapkan.`)
+  }
+
+  function validasi(): SalahForm {
+    const hasil: SalahForm = {}
+    if (nilai.nama_pelapor.trim().length < 3) hasil.nama_pelapor = 'Nama minimal 3 karakter'
+    if (!nilai.unit_kerja) hasil.unit_kerja = 'Pilih unit kerja dulu'
+    if (!nilai.kategori) hasil.kategori = 'Pilih salah satu kategori masalah'
+    if (nilai.judul.trim().length < 5) hasil.judul = 'Judul minimal 5 karakter'
+    if (nilai.penjelasan.trim().length < 10)
+      hasil.penjelasan = 'Penjelasan minimal 10 karakter'
+    return hasil
+  }
+
   async function kirim(e: React.FormEvent) {
     e.preventDefault()
-    const hasil = validasi(nilai)
-    setSalah(hasil)
-    if (Object.keys(hasil).length > 0) return
-
+    const masalah = validasi()
+    setSalah(masalah)
+    if (Object.keys(masalah).length > 0) return
     setMengirim(true)
-    const berhasil = await onKirim(nilai as InputTiket)
+    const berhasil = await onKirim({
+      ...nilai,
+      nama_pelapor: nilai.nama_pelapor.trim(),
+      judul: nilai.judul.trim(),
+      penjelasan: nilai.penjelasan.trim(),
+    } as InputTiket)
     setMengirim(false)
-    if (berhasil) setNilai(AWAL)
+    if (berhasil) {
+      setNilai(NILAI_AWAL)
+      setSalah({})
+    }
   }
 
   return (
-    <form onSubmit={kirim} className="space-y-4" noValidate>
-      <div>
-        <label htmlFor="nama_pelapor" className="mb-1.5 block text-xs font-semibold text-slate-700">
-          Nama Pelapor <span className="text-rose-500">*</span>
-        </label>
-        <div className="relative">
-          <User className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            id="nama_pelapor"
-            value={nilai.nama_pelapor}
-            onChange={(e) => ubah('nama_pelapor', e.target.value)}
-            placeholder="Contoh: Rina Marlina"
-            aria-invalid={!!salah.nama_pelapor}
-            className={cn(
-              GAYA_INPUT,
-              'border-slate-200 pl-10',
-              salah.nama_pelapor ? 'border-rose-400' : 'focus:border-indigo-500',
-            )}
-          />
-        </div>
-        <PesanSalah pesan={salah.nama_pelapor} />
-      </div>
-
-      <div>
-        <label htmlFor="unit_kerja" className="mb-1.5 block text-xs font-semibold text-slate-700">
-          Unit Kerja <span className="text-rose-500">*</span>
-        </label>
-        <div className="relative">
-          <Building2 className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <select
-            id="unit_kerja"
-            value={nilai.unit_kerja}
-            onChange={(e) => ubah('unit_kerja', e.target.value)}
-            aria-invalid={!!salah.unit_kerja}
-            className={cn(
-              GAYA_INPUT,
-              'appearance-none border-slate-200 pr-9 pl-10',
-              salah.unit_kerja ? 'border-rose-400' : 'focus:border-indigo-500',
-            )}
-          >
-            <option value="">Pilih unit kerja Anda...</option>
-            {UNIT_KERJA.map((unit) => (
-              <option key={unit} value={unit}>
-                {unit}
-              </option>
+    <div className="frost-root">
+      {tampilkanPreset && (
+        <div className="mb-4 space-y-1.5">
+          <span className="frost-mono frost-text-muted text-[10px] font-bold tracking-wider uppercase">
+            Kendala Cepat (Ketuk untuk isi)
+          </span>
+          <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 py-0.5">
+            {PRESET_KENDALA.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => terapkanPreset(preset)}
+                className="frost-surface frost-text-primary tap-press cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold whitespace-nowrap"
+              >
+                + {preset.label}
+              </button>
             ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute top-1/2 right-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          </div>
         </div>
-        <PesanSalah pesan={salah.unit_kerja} />
-      </div>
+      )}
 
-      <div>
-        <p id="label-kategori" className="mb-1.5 block text-xs font-semibold text-slate-700">
-          Kategori Masalah <span className="text-rose-500">*</span>
-        </p>
-        <div
-          role="radiogroup"
-          aria-labelledby="label-kategori"
-          className="grid grid-cols-2 gap-2.5"
-        >
-          {KATEGORI.map((kategori) => {
-            const Ikon = IKON_KATEGORI[kategori]
-            const aktif = nilai.kategori === kategori
-            return (
-              <button
-                key={kategori}
-                type="button"
-                role="radio"
-                aria-checked={aktif}
-                onClick={() => ubah('kategori', kategori)}
-                className={cn(
-                  'flex items-center gap-2.5 rounded-xl border p-3 text-left transition-all',
-                  aktif
-                    ? 'border-indigo-500 bg-indigo-50/70 ring-2 ring-indigo-500/20'
-                    : 'border-slate-200 bg-white hover:border-indigo-300',
-                )}
-              >
-                <span
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                    aktif ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600',
-                  )}
-                >
-                  <Ikon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-xs font-semibold text-slate-800">
+      <form onSubmit={kirim} className="space-y-3.5" noValidate>
+        <div className="frost-surface space-y-3.5 rounded-2xl p-4">
+          <div>
+            <label
+              htmlFor="nama_pelapor"
+              className="frost-text-primary mb-1 block text-[11px] font-bold"
+            >
+              Nama Pelapor
+            </label>
+            <input
+              id="nama_pelapor"
+              type="text"
+              value={nilai.nama_pelapor}
+              onChange={(e) => ubah('nama_pelapor', e.target.value)}
+              placeholder="Contoh: Siti Rahmawati"
+              aria-invalid={!!salah.nama_pelapor}
+              className={cn(
+                'frost-input w-full rounded-xl px-3.5 py-2.5 text-xs font-semibold',
+                salah.nama_pelapor && 'frost-input-error',
+              )}
+            />
+            <PesanSalah pesan={salah.nama_pelapor} />
+          </div>
+
+          <div>
+            <p
+              id="label-unit-kerja"
+              className="frost-text-primary mb-1.5 block text-[11px] font-bold"
+            >
+              Unit Kerja
+            </p>
+            <div
+              role="radiogroup"
+              aria-labelledby="label-unit-kerja"
+              className="grid grid-cols-3 gap-1.5"
+            >
+              {UNIT_KERJA.map((unit) => {
+                const aktif = nilai.unit_kerja === unit
+                return (
+                  <button
+                    key={unit}
+                    type="button"
+                    role="radio"
+                    aria-checked={aktif}
+                    onClick={() => ubah('unit_kerja', unit)}
+                    className={cn(
+                      'tap-press cursor-pointer truncate rounded-xl px-2 py-2 text-[11px] transition-all',
+                      aktif ? 'frost-pill-active font-bold' : 'frost-pill-inactive font-semibold',
+                    )}
+                  >
+                    {unit}
+                  </button>
+                )
+              })}
+            </div>
+            <PesanSalah pesan={salah.unit_kerja} />
+          </div>
+
+          <div>
+            <p
+              id="label-kategori"
+              className="frost-text-primary mb-1.5 block text-[11px] font-bold"
+            >
+              Kategori Masalah
+            </p>
+            <div
+              role="radiogroup"
+              aria-labelledby="label-kategori"
+              className="grid grid-cols-2 gap-1.5"
+            >
+              {KATEGORI.map((kategori) => {
+                const aktif = nilai.kategori === kategori
+                return (
+                  <button
+                    key={kategori}
+                    type="button"
+                    role="radio"
+                    aria-checked={aktif}
+                    onClick={() => ubah('kategori', kategori)}
+                    className={cn(
+                      'tap-press cursor-pointer truncate rounded-xl px-2 py-2 text-[11px] transition-all',
+                      aktif ? 'frost-pill-active font-bold' : 'frost-pill-inactive font-semibold',
+                    )}
+                  >
                     {LABEL_KATEGORI[kategori]}
-                  </span>
-                  <span className="block text-[10px] text-slate-400">
-                    {KETERANGAN_KATEGORI[kategori]}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
+                  </button>
+                )
+              })}
+            </div>
+            <PesanSalah pesan={salah.kategori} />
+          </div>
+
+          <div>
+            <label
+              htmlFor="judul"
+              className="frost-text-primary mb-1 block text-[11px] font-bold"
+            >
+              Judul Masalah
+            </label>
+            <input
+              id="judul"
+              type="text"
+              value={nilai.judul}
+              onChange={(e) => ubah('judul', e.target.value)}
+              placeholder="Judul singkat gangguan..."
+              aria-invalid={!!salah.judul}
+              className={cn(
+                'frost-input w-full rounded-xl px-3.5 py-2.5 text-xs font-semibold',
+                salah.judul && 'frost-input-error',
+              )}
+            />
+            <PesanSalah pesan={salah.judul} />
+          </div>
+
+          <div>
+            <label
+              htmlFor="penjelasan"
+              className="frost-text-primary mb-1 block text-[11px] font-bold"
+            >
+              Penjelasan Masalah
+            </label>
+            <textarea
+              id="penjelasan"
+              rows={2}
+              value={nilai.penjelasan}
+              onChange={(e) => ubah('penjelasan', e.target.value)}
+              placeholder="Jelaskan detail gangguan, nomor PC, atau pesan error..."
+              aria-invalid={!!salah.penjelasan}
+              className={cn(
+                'frost-input w-full resize-none rounded-xl px-3.5 py-2 text-xs font-medium',
+                salah.penjelasan && 'frost-input-error',
+              )}
+            />
+            <PesanSalah pesan={salah.penjelasan} />
+          </div>
+
+          <div>
+            <p
+              id="label-prioritas"
+              className="frost-text-primary mb-1.5 block text-[11px] font-bold"
+            >
+              Tingkat Urgensi
+            </p>
+            <div
+              role="radiogroup"
+              aria-labelledby="label-prioritas"
+              className="grid grid-cols-3 gap-1.5"
+            >
+              {PRIORITAS.map((prioritas) => {
+                const aktif = nilai.prioritas === prioritas
+                return (
+                  <button
+                    key={prioritas}
+                    type="button"
+                    role="radio"
+                    aria-checked={aktif}
+                    onClick={() => ubah('prioritas', prioritas)}
+                    className={cn(
+                      'tap-press flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] transition-all',
+                      aktif ? 'frost-pill-active font-bold' : 'frost-pill-inactive font-semibold',
+                    )}
+                  >
+                    <span
+                      className={cn('h-1.5 w-1.5 shrink-0 rounded-full', DOT_PRIORITAS[prioritas])}
+                    />
+                    <span>{LABEL_PRIORITAS_FROST[prioritas]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
-        <PesanSalah pesan={salah.kategori} />
-      </div>
 
-      <div>
-        <label htmlFor="judul" className="mb-1.5 block text-xs font-semibold text-slate-700">
-          Judul Masalah <span className="text-rose-500">*</span>
-        </label>
-        <input
-          id="judul"
-          value={nilai.judul}
-          onChange={(e) => ubah('judul', e.target.value)}
-          placeholder="Contoh: Printer kasir tidak bisa menarik kertas"
-          aria-invalid={!!salah.judul}
-          className={cn(
-            GAYA_INPUT,
-            'border-slate-200',
-            salah.judul ? 'border-rose-400' : 'focus:border-indigo-500',
-          )}
-        />
-        <PesanSalah pesan={salah.judul} />
-      </div>
-
-      <div>
-        <label htmlFor="penjelasan" className="mb-1.5 block text-xs font-semibold text-slate-700">
-          Penjelasan Masalah <span className="text-rose-500">*</span>
-        </label>
-        <textarea
-          id="penjelasan"
-          rows={3}
-          value={nilai.penjelasan}
-          onChange={(e) => ubah('penjelasan', e.target.value)}
-          placeholder="Jelaskan kronologi atau pesan error yang muncul..."
-          aria-invalid={!!salah.penjelasan}
-          className={cn(
-            GAYA_INPUT,
-            'resize-none border-slate-200',
-            salah.penjelasan ? 'border-rose-400' : 'focus:border-indigo-500',
-          )}
-        />
-        <PesanSalah pesan={salah.penjelasan} />
-      </div>
-
-      <div>
-        <p id="label-prioritas" className="mb-1.5 block text-xs font-semibold text-slate-700">
-          Tingkat Prioritas
-        </p>
-        <div
-          role="radiogroup"
-          aria-labelledby="label-prioritas"
-          className="grid grid-cols-3 gap-2 rounded-xl bg-slate-200/70 p-1"
-        >
-          {PRIORITAS.map((prioritas) => {
-            const aktif = nilai.prioritas === prioritas
-            return (
-              <button
-                key={prioritas}
-                type="button"
-                role="radio"
-                aria-checked={aktif}
-                onClick={() => ubah('prioritas', prioritas)}
-                className={cn(
-                  'rounded-lg px-2 py-2 text-xs font-semibold transition-all',
-                  aktif ? GAYA_PIL_PRIORITAS[prioritas] : 'text-slate-600 hover:text-slate-900',
-                )}
-              >
-                {LABEL_PRIORITAS[prioritas]}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2.5 pt-2">
         <button
           type="submit"
           disabled={mengirim}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
+          className="frost-btn-primary tap-press flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl py-3.5 text-xs font-extrabold tracking-wide shadow-sm"
         >
-          <Send className="h-4 w-4" />
-          <span>{mengirim ? 'Mengirim...' : labelTombol}</span>
+          {mengirim ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Mengirim...</span>
+            </>
+          ) : (
+            <>
+              <span>{labelTombol}</span>
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </button>
         {onBatal && (
           <button
             type="button"
             onClick={onBatal}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50"
+            className="frost-text-secondary w-full cursor-pointer py-1 text-center text-xs font-semibold hover:opacity-80"
           >
             Batal
           </button>
         )}
-      </div>
-    </form>
+      </form>
+    </div>
   )
 }

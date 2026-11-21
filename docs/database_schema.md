@@ -1,7 +1,11 @@
 # Skema Database — Aplikasi Tiketing IT Support
 
-Versi 1.1 — 21 November 2026
+Versi 1.2 — 21 November 2026
 Dijalankan di Supabase SQL Editor (satu kali saat setup project).
+
+Perubahan 1.2: insert langsung oleh `anon` DITUTUP (migrasi
+`20261121000002_rpc_only_insert.sql`). Pembuatan tiket hanya lewat
+RPC `submit_tiket_publik` — lihat §3.
 
 ## 1. Tabel `tickets`
 
@@ -75,12 +79,12 @@ bulan (sequence global) — cukup untuk skala pemakaian ini.
 ```sql
 alter table public.tickets enable row level security;
 
--- Pengunjung tanpa login: HANYA boleh membuat tiket (insert).
--- Tidak diberi izin SELECT agar tidak bisa membaca tiket orang lain.
-create policy "publik bisa buat tiket"
-  on public.tickets for insert
-  to anon
-  with check (true);
+-- Pengunjung tanpa login: TIDAK punya policy INSERT langsung.
+-- Pembuatan tiket hanya lewat RPC submit_tiket_publik (§3 bawah).
+-- Policy insert anon yang lama ("publik bisa buat tiket", WITH CHECK
+-- true) dihapus oleh migrasi 20261121000002_rpc_only_insert.sql karena
+-- membiarkan siapa pun membuat tiket dengan status/tanggal sembarang.
+-- (Jangan membuat ulang policy insert untuk anon.)
 
 -- Admin login: boleh baca semua tiket.
 create policy "admin bisa baca tiket"
@@ -150,8 +154,9 @@ grant execute on function public.submit_tiket_publik(text, text, text, text, tex
 Tes wajib setelah setup (di SQL Editor / dari aplikasi):
 
 1. Tanpa login (`anon`): `select * from public.tickets` ditolak (kosong/error).
-2. Tanpa login (`anon`): memanggil `supabase.rpc('submit_tiket_publik', ...)` berhasil dan mengembalikan string `TKT-YYYYMM-####`.
-3. Setelah login sebagai admin (`authenticated`): `select` + `update` berhasil.
+2. Tanpa login (`anon`): insert langsung ke tabel ditolak (tidak ada policy/grant insert anon).
+3. Tanpa login (`anon`): memanggil `supabase.rpc('submit_tiket_publik', ...)` berhasil dan mengembalikan string `TKT-YYYYMM-####`.
+4. Setelah login sebagai admin (`authenticated`): `select` + `update` berhasil.
 
 ## 4. Akun admin
 

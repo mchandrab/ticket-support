@@ -1,14 +1,10 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { envApp } from '../env'
 
 const email = envApp.TEST_ADMIN_EMAIL
 const password = envApp.TEST_ADMIN_PASSWORD
 
 test.skip(!email || !password, 'Isi TEST_ADMIN_EMAIL dan TEST_ADMIN_PASSWORD di .env.test.local')
-
-async function pilihOpsi(page: Page, nama: string, opsi: string) {
-  await page.getByLabel(nama).selectOption({ label: opsi })
-}
 
 test('alur utama: buat tiket → muncul di admin → dikerjakan → selesai → KPI berubah', async ({
   browser,
@@ -34,7 +30,7 @@ test('alur utama: buat tiket → muncul di admin → dikerjakan → selesai → 
   await publik.goto('/')
   await expect(publik.getByRole('heading', { name: 'Lapor Masalah IT' })).toBeVisible()
   await publik.getByLabel('Nama pelapor').fill(penanda)
-  await pilihOpsi(publik, 'Unit kerja', 'Keuangan')
+  await publik.getByRole('radio', { name: 'Keuangan' }).click()
   await publik.getByRole('radio', { name: 'Jaringan' }).click()
   await publik.getByLabel('Judul masalah').fill('Jaringan ruang kasir putus')
   await publik

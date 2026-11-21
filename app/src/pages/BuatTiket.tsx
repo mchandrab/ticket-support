@@ -1,16 +1,36 @@
-import { CheckCircle2, Copy, Headset, PlusCircle } from 'lucide-react'
-import { useState } from 'react'
+import { Moon, Sun } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { MobileShell } from '@/components/MobileShell'
+import { AmperaIcon } from '@/components/AmperaIcon'
+import { FrostPass } from '@/components/FrostPass'
+import { FrostShell, type FrostTema } from '@/components/FrostShell'
 import { TicketForm } from '@/components/TicketForm'
-import { LABEL_KATEGORI, LABEL_PRIORITAS } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
 import type { InputTiket } from '@/lib/types'
 import { toast } from 'sonner'
 
+/** Jam layanan IT (WIB): Senin–Jumat 07:30–15:30, Sabtu 07:30–13:00. */
+function timItOnline(): boolean {
+  const sekarang = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+  const hari = sekarang.getDay()
+  const menit = sekarang.getHours() * 60 + sekarang.getMinutes()
+  if (hari >= 1 && hari <= 5) return menit >= 7 * 60 + 30 && menit < 15 * 60 + 30
+  if (hari === 6) return menit >= 7 * 60 + 30 && menit < 13 * 60
+  return false
+}
+
 export default function BuatTiket() {
   const [nomorTiket, setNomorTiket] = useState<string | null>(null)
   const [ringkasan, setRingkasan] = useState<InputTiket | null>(null)
+  const [tema, setTema] = useState<FrostTema>(() =>
+    localStorage.getItem('frost-tema') === 'dark' ? 'dark' : 'light',
+  )
+
+  useEffect(() => {
+    localStorage.setItem('frost-tema', tema)
+  }, [tema])
+
+  const online = timItOnline()
 
   async function kirim(nilai: InputTiket) {
     const { data, error } = await supabase.rpc('submit_tiket_publik', {
@@ -32,141 +52,89 @@ export default function BuatTiket() {
     return true
   }
 
-  async function salinNomor() {
-    if (!nomorTiket) return
-    try {
-      await navigator.clipboard.writeText(nomorTiket)
-      toast.success('Nomor tiket disalin')
-    } catch {
-      toast.error('Gagal menyalin. Salin manual nomor tiket di atas.')
-    }
+  function reset() {
+    setNomorTiket(null)
+    setRingkasan(null)
   }
 
   return (
-    <MobileShell latar="gelap">
-      <div className="flex h-full flex-col bg-slate-50">
-        <header className="shrink-0 rounded-b-3xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 px-5 pt-4 pb-6 text-white shadow-md">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-white/15 backdrop-blur-sm">
-                <Headset className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-[11px] leading-tight font-medium text-indigo-100">
-                  Koperasi Kredit Rukun
-                </p>
-                <p className="text-sm font-bold tracking-tight">Layanan IT Support</p>
-              </div>
-            </div>
-            <span className="shrink-0 rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-[11px] font-medium">
-              Tanpa Login
-            </span>
+    <FrostShell tema={tema}>
+      <header className="frost-header z-20 flex h-14 shrink-0 items-center justify-between px-5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="frost-surface frost-text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-xl">
+            <AmperaIcon className="h-4 w-4" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">
-            {nomorTiket ? 'Laporan Terkirim' : 'Lapor Masalah IT'}
-          </h1>
-          <p className="mt-0.5 text-xs leading-relaxed text-indigo-100">
-            {nomorTiket
-              ? 'Simpan nomor tiket Anda sebagai bukti laporan.'
-              : 'Isi formulir di bawah ini agar kendala teknis Anda segera tercatat dan ditangani tim IT.'}
-          </p>
-        </header>
+          <div className="min-w-0">
+            <h1 className="frost-text-primary text-sm leading-none font-extrabold tracking-tight">
+              KoperasiCare
+            </h1>
+            <p className="frost-text-muted mt-1 truncate text-[10px] font-medium">
+              Kopdit Rukun Palembang
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setTema(tema === 'light' ? 'dark' : 'light')}
+          aria-label="Ganti tema gelap atau terang"
+          className="frost-surface frost-text-primary tap-press flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full"
+        >
+          {tema === 'light' ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+        </button>
+      </header>
 
-        <main className="flex-1 overflow-y-auto px-5 py-5">
-          {nomorTiket ? (
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-sm">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 shadow-inner">
-                <CheckCircle2 className="h-9 w-9" />
-              </div>
-              <h2 className="text-lg font-bold text-slate-900">Laporan Diterima!</h2>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                Tiket Anda telah masuk ke antrean IT Support. Simpan nomor tiket berikut sebagai
-                bukti laporan:
-              </p>
-
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
-                <span className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-                  Nomor Tiket Anda
-                </span>
-                <div className="mt-1 flex items-center justify-center gap-2">
-                  <span
-                    className="font-mono text-xl font-extrabold tracking-tight text-indigo-700 tabular-nums"
-                    data-testid="nomor-tiket"
-                  >
-                    {nomorTiket}
+      <main className="no-scrollbar flex-1 overflow-y-auto px-5 pt-3.5 pb-6">
+        {nomorTiket && ringkasan ? (
+          <FrostPass nomorTiket={nomorTiket} ringkasan={ringkasan} onBaru={reset} />
+        ) : (
+          <div className="animate-fade space-y-4">
+            <div className="frost-surface flex items-center justify-between rounded-2xl px-3.5 py-2.5">
+              <div className="flex min-w-0 items-center gap-2">
+                {online ? (
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-teal-600" />
                   </span>
-                  <button
-                    type="button"
-                    onClick={salinNomor}
-                    title="Salin Nomor Tiket"
-                    className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 shadow-xs transition-all hover:border-indigo-300 hover:text-indigo-600"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
+                ) : (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-slate-400" />
+                )}
+                <span className="frost-text-primary truncate text-[11px] font-semibold">
+                  {online
+                    ? 'Tim IT Online • Estimasi respon < 15 mnt'
+                    : 'Di luar jam layanan • Laporan tetap tercatat'}
+                </span>
               </div>
-
-              {ringkasan && (
-                <div className="mt-5 space-y-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 text-left text-xs">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-400">Pelapor</span>
-                    <span className="text-right font-semibold text-slate-700">
-                      {ringkasan.nama_pelapor}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-400">Unit / Kategori</span>
-                    <span className="text-right font-semibold text-slate-700">
-                      {ringkasan.unit_kerja} / {LABEL_KATEGORI[ringkasan.kategori]}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-400">Prioritas</span>
-                    <span className="text-right font-semibold text-slate-700">
-                      {LABEL_PRIORITAS[ringkasan.prioritas]}
-                    </span>
-                  </div>
-                  <div className="border-t border-slate-200/60 pt-1.5">
-                    <span className="mb-0.5 block text-slate-400">Judul Masalah</span>
-                    <span className="block font-medium text-slate-800">{ringkasan.judul}</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-6 space-y-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNomorTiket(null)
-                    setRingkasan(null)
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 transition-all hover:bg-indigo-700"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span>Buat Laporan Lagi</span>
-                </button>
-                <Link
-                  to="/admin/login"
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-200/80"
-                >
-                  <span>Lihat di Konsol Admin IT</span>
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-5 pb-2">
-              <TicketForm onKirim={kirim} />
-
-              <Link
-                to="/admin/login"
-                className="block pb-2 text-center text-[11px] font-semibold text-slate-400 transition-colors hover:text-indigo-600"
+              <span
+                className={
+                  online
+                    ? 'frost-accent-subtle frost-mono shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold'
+                    : 'frost-track frost-text-muted frost-mono shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold'
+                }
               >
-                Masuk Konsol Admin IT
-              </Link>
+                {online ? 'SIAGA' : 'OFFLINE'}
+              </span>
             </div>
-          )}
-        </main>
-      </div>
-    </MobileShell>
+
+            <div>
+              <h2 className="frost-text-primary text-lg font-extrabold tracking-tight">
+                Lapor Masalah IT
+              </h2>
+              <p className="frost-text-secondary mt-0.5 text-xs">
+                Sampaikan gangguan perangkat atau sistem tanpa perlu login.
+              </p>
+            </div>
+
+            <TicketForm onKirim={kirim} labelTombol="Kirim Laporan Tiket" tampilkanPreset />
+
+            <Link
+              to="/admin/login"
+              className="frost-text-muted block pb-2 text-center text-[11px] font-semibold hover:opacity-80"
+            >
+              Masuk Konsol Admin IT
+            </Link>
+          </div>
+        )}
+      </main>
+    </FrostShell>
   )
 }
